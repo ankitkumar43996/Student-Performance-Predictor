@@ -1,0 +1,86 @@
+name: Deploy to AWS Elastic Beanstalk
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    name: Build & Deploy
+    runs-on: ubuntu-latest
+
+    steps:
+      # ── 1. Checkout ──────────────────────────────────────────────
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # ── 2. Set up Python ─────────────────────────────────────────
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      # ── 3. Install dependencies ───────────────────────────────────
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # ── 4. Retrain model (ensures fresh .joblib artifacts) ───────
+      - name: Train model
+        run: python train.py
+
+      # ── 5. Package application ────────────────────────────────────
+      - name: Create deployment package
+        run: |
+          zip -r deploy.zip . \
+            --exclude "*.git*" \
+            --exclude "deploy.zip" \
+            --exclude "__pycache__/*" \
+            --exclude "*.pyc" \
+            --exclude ".venv/*" \
+            --exclude "venv/*"
+
+      # ── 6. Configure AWS credentials ──────────────────────────────
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: eu-north-1
+
+      # ── 7. Upload bundle to S3 ────────────────────────────────────
+      - name: Upload to S3
+        run: |
+          TIMESTAMP=$(date +%Y%m%d%H%M%S)
+          BUNDLE_KEY="student-predictor/deploy-${TIMESTAMP}.zip"
+          echo "BUNDLE_KEY=${BUNDLE_KEY}" >> $GITHUB_ENV
+          echo "TIMESTAMP=${TIMESTAMP}" >> $GITHUB_ENV
+          aws s3 cp deploy.zip s3://${{ secrets.EB_S3_BUCKET }}/${BUNDLE_KEY}
+
+      # ── 8. Create new EB application version ─────────────────────
+      - name: Create Elastic Beanstalk application version
+        run: |
+          aws elasticbeanstalk create-application-version \
+            --application-name "${{ secrets.EB_APP_NAME }}" \
+            --version-label "v-${{ env.TIMESTAMP }}-${{ github.sha }}" \
+            --source-bundle S3Bucket="${{ secrets.EB_S3_BUCKET }}",S3Key="${{ env.BUNDLE_KEY }}" \
+            --region eu-north-1
+
+      # ── 9. Deploy to EB environment ───────────────────────────────
+      - name: Deploy to Elastic Beanstalk environment
+        run: |
+          aws elasticbeanstalk update-environment \
+            --environment-name "${{ secrets.EB_ENV_NAME }}" \
+            --version-label "v-${{ env.TIMESTAMP }}-${{ github.sha }}" \
+            --region eu-north-1
+
+      # ── 10. Wait for deployment to complete ───────────────────────
+      - name: Wait for environment to be ready
+        run: |
+          echo "Waiting for Elastic Beanstalk environment to become Ready..."
+          aws elasticbeanstalk wait environment-updated \
+            --environment-names "${{ secrets.EB_ENV_NAME }}" \
+            --region eu-north-1
+          echo "✅ Deployment complete!"
