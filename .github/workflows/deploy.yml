@@ -57,7 +57,7 @@ jobs:
           BUNDLE_KEY="student-predictor/deploy-${TIMESTAMP}.zip"
           echo "BUNDLE_KEY=${BUNDLE_KEY}" >> $GITHUB_ENV
           echo "TIMESTAMP=${TIMESTAMP}" >> $GITHUB_ENV
-          aws s3 cp deploy.zip s3://${{ secrets.EB_S3_BUCKET }}/${BUNDLE_KEY}
+          aws s3 cp deploy.zip s3://studentmarkspredictor-deployments/${BUNDLE_KEY}
 
       # ── 8. Create new EB application version ─────────────────────
       - name: Create Elastic Beanstalk application version
@@ -65,7 +65,7 @@ jobs:
           aws elasticbeanstalk create-application-version \
             --application-name "Studentmarkspredictor" \
             --version-label "v-${{ env.TIMESTAMP }}-${{ github.sha }}" \
-            --source-bundle S3Bucket="${{ secrets.EB_S3_BUCKET }}",S3Key="${{ env.BUNDLE_KEY }}" \
+            --source-bundle S3Bucket="studentmarkspredictor-deployments",S3Key="${{ env.BUNDLE_KEY }}" \
             --region eu-north-1
 
       # ── 9. Deploy to EB environment ───────────────────────────────
