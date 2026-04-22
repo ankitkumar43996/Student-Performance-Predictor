@@ -80,7 +80,23 @@ jobs:
       - name: Wait for environment to be ready
         run: |
           echo "Waiting for Elastic Beanstalk environment to become Ready..."
-          aws elasticbeanstalk wait environment-updated \
-            --environment-names "${{ secrets.EB_ENV_NAME }}" \
-            --region eu-north-1
-          echo "✅ Deployment complete!"
+          for i in {1..40}; do
+            STATUS=$(aws elasticbeanstalk describe-environments \
+              --environment-names "Studentmarkspredictor-env" \
+              --region eu-north-1 \
+              --query "Environments[0].Status" \
+              --output text)
+            HEALTH=$(aws elasticbeanstalk describe-environments \
+              --environment-names "Studentmarkspredictor-env" \
+              --region eu-north-1 \
+              --query "Environments[0].Health" \
+              --output text)
+            echo "  Attempt $i/40 — Status: $STATUS | Health: $HEALTH"
+            if [ "$STATUS" = "Ready" ]; then
+              echo "✅ Deployment complete! Environment is Ready."
+              exit 0
+            fi
+            sleep 15
+          done
+          echo "⚠️ Timed out waiting for environment. Check the AWS Console."
+          exit 1
