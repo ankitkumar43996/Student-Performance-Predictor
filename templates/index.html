@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Marks Predictor | AI-Powered</title>
+    <meta name="description" content="Predict student exam marks using AI — based on study hours, sleep, attendance, past marks, and more.">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+    <div class="bg-orbs">
+        <div class="orb orb-1"></div>
+        <div class="orb orb-2"></div>
+        <div class="orb orb-3"></div>
+        <div class="orb orb-4"></div>
+    </div>
+
+    <div class="grid-overlay"></div>
+
+    <main class="page">
+        <div class="hero-text">
+            <div class="badge">🤖 ML Powered</div>
+            <h1>Student Marks <span class="gradient-text">Predictor</span></h1>
+            <p>Forecast your exam performance using smart AI trained on student behavior patterns.</p>
+        </div>
+
+        <div class="card-wrapper">
+            <div class="glass-card">
+                <form id="predict-form">
+                    <div class="form-grid">
+
+                        <div class="field">
+                            <label for="study_hours">
+                                <span class="icon">📚</span> Study Hours / Day
+                            </label>
+                            <div class="input-wrap">
+                                <input type="number" id="study_hours" min="0" max="16" step="0.5" placeholder="e.g. 6" required>
+                                <span class="unit">hrs</span>
+                            </div>
+                            <div class="slider-row">
+                                <input type="range" id="study_hours_range" min="0" max="16" step="0.5" value="6">
+                                <span class="range-val" id="study_val">6</span>
+                            </div>
+                        </div>
+
+                        <div class="field">
+                            <label for="sleep_hours">
+                                <span class="icon">😴</span> Sleep Hours / Night
+                            </label>
+                            <div class="input-wrap">
+                                <input type="number" id="sleep_hours" min="3" max="12" step="0.5" placeholder="e.g. 7" required>
+                                <span class="unit">hrs</span>
+                            </div>
+                            <div class="slider-row">
+                                <input type="range" id="sleep_hours_range" min="3" max="12" step="0.5" value="7">
+                                <span class="range-val" id="sleep_val">7</span>
+                            </div>
+                        </div>
+
+                        <div class="field">
+                            <label for="past_marks">
+                                <span class="icon">📝</span> Past Year Marks
+                            </label>
+                            <div class="input-wrap">
+                                <input type="number" id="past_marks" min="0" max="100" step="1" placeholder="e.g. 72" required>
+                                <span class="unit">%</span>
+                            </div>
+                            <div class="slider-row">
+                                <input type="range" id="past_marks_range" min="0" max="100" step="1" value="72">
+                                <span class="range-val" id="past_val">72</span>
+                            </div>
+                        </div>
+
+                        <div class="field">
+                            <label for="attendance_pct">
+                                <span class="icon">🏫</span> Attendance
+                            </label>
+                            <div class="input-wrap">
+                                <input type="number" id="attendance_pct" min="0" max="100" step="1" placeholder="e.g. 85" required>
+                                <span class="unit">%</span>
+                            </div>
+                            <div class="slider-row">
+                                <input type="range" id="attendance_range" min="0" max="100" step="1" value="85">
+                                <span class="range-val" id="attend_val">85</span>
+                            </div>
+                        </div>
+
+                        <div class="field full-width">
+                            <label for="extra_activities">
+                                <span class="icon">🏆</span> Extra-Curricular Activities
+                            </label>
+                            <div class="activity-picker">
+                                <button type="button" class="activity-btn active" data-val="0">None</button>
+                                <button type="button" class="activity-btn" data-val="1">1</button>
+                                <button type="button" class="activity-btn" data-val="2">2</button>
+                                <button type="button" class="activity-btn" data-val="3">3</button>
+                                <button type="button" class="activity-btn" data-val="4">4</button>
+                                <button type="button" class="activity-btn" data-val="5">5+</button>
+                            </div>
+                            <input type="hidden" id="extra_activities" value="0">
+                        </div>
+
+                    </div>
+
+                    <button type="submit" id="predict-btn" class="predict-btn">
+                        <span class="btn-text">Predict My Score</span>
+                        <span class="btn-icon">→</span>
+                        <span class="spinner hidden"></span>
+                    </button>
+                </form>
+
+                <div id="result" class="result hidden">
+                    <div class="result-divider"></div>
+                    <div class="result-inner">
+                        <div class="result-left">
+                            <div class="result-title">Predicted Score</div>
+                            <div class="score-display">
+                                <span id="score-num">--</span>
+                                <span class="score-unit">/ 100</span>
+                            </div>
+                            <div class="grade-badge" id="grade-badge">--</div>
+                        </div>
+                        <div class="result-right">
+                            <div class="result-label-title" id="grade-label">--</div>
+                            <div id="result-tip" class="result-tip"></div>
+                            <div class="score-bar-wrap">
+                                <div class="score-bar">
+                                    <div class="score-fill" id="score-fill" style="width:0%"></div>
+                                </div>
+                                <span id="score-pct">0%</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="error-box" class="error-box hidden"></div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // Sync sliders with number inputs
+        const syncPairs = [
+            { num: 'study_hours', range: 'study_hours_range', disp: 'study_val' },
+            { num: 'sleep_hours', range: 'sleep_hours_range', disp: 'sleep_val' },
+            { num: 'past_marks', range: 'past_marks_range', disp: 'past_val' },
+            { num: 'attendance_pct', range: 'attendance_range', disp: 'attend_val' },
+        ];
+
+        syncPairs.forEach(({ num, range, disp }) => {
+            const numEl = document.getElementById(num);
+            const rangeEl = document.getElementById(range);
+            const dispEl = document.getElementById(disp);
+
+            numEl.addEventListener('input', () => {
+                rangeEl.value = numEl.value;
+                dispEl.textContent = numEl.value;
+            });
+            rangeEl.addEventListener('input', () => {
+                numEl.value = rangeEl.value;
+                dispEl.textContent = rangeEl.value;
+            });
+        });
+
+        // Activity picker
+        let selectedActivity = 0;
+        document.querySelectorAll('.activity-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.activity-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                selectedActivity = parseInt(btn.dataset.val);
+                document.getElementById('extra_activities').value = selectedActivity;
+            });
+        });
+
+        // Form submit
+        document.getElementById('predict-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const btn = document.getElementById('predict-btn');
+            const btnText = btn.querySelector('.btn-text');
+            const btnIcon = btn.querySelector('.btn-icon');
+            const spinner = btn.querySelector('.spinner');
+            const resultEl = document.getElementById('result');
+            const errorEl = document.getElementById('error-box');
+
+            // Loading state
+            btn.disabled = true;
+            btnText.textContent = 'Predicting...';
+            btnIcon.classList.add('hidden');
+            spinner.classList.remove('hidden');
+            resultEl.classList.add('hidden');
+            errorEl.classList.add('hidden');
+
+            const payload = {
+                study_hours: document.getElementById('study_hours').value,
+                sleep_hours: document.getElementById('sleep_hours').value,
+                past_marks: document.getElementById('past_marks').value,
+                attendance_pct: document.getElementById('attendance_pct').value,
+                extra_activities: selectedActivity
+            };
+
+            try {
+                const res = await fetch('/predict', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+
+                if (res.ok) {
+                    showResult(data);
+                } else {
+                    showError(data.error || 'Prediction failed.');
+                }
+            } catch (err) {
+                showError('Network error. Make sure the server is running.');
+            } finally {
+                btn.disabled = false;
+                btnText.textContent = 'Predict My Score';
+                btnIcon.classList.remove('hidden');
+                spinner.classList.add('hidden');
+            }
+        });
+
+        function showResult(data) {
+            const { predicted_marks, grade, grade_label } = data;
+            const scoreEl = document.getElementById('score-num');
+            const gradeBadgeEl = document.getElementById('grade-badge');
+            const gradeLabelEl = document.getElementById('grade-label');
+            const fillEl = document.getElementById('score-fill');
+            const pctEl = document.getElementById('score-pct');
+            const tipEl = document.getElementById('result-tip');
+            const resultEl = document.getElementById('result');
+
+            // Tips
+            const tips = {
+                'A+': '🌟 Exceptional! You are set for excellence.',
+                'A': '🎉 Great performance! Keep up the momentum.',
+                'B': '👍 Solid result. A little more effort can get you an A!',
+                'C': '📈 Decent. Focus on weak areas and practice more.',
+                'D': '⚠️ Below average. Consider revising your study habits.',
+                'F': '🆘 Try increasing study hours and attendance significantly.'
+            };
+
+            const gradeColors = {
+                'A+': '#10b981', 'A': '#22c55e', 'B': '#3b82f6',
+                'C': '#f59e0b', 'D': '#f97316', 'F': '#ef4444'
+            };
+
+            resultEl.classList.remove('hidden');
+            gradeBadgeEl.textContent = grade;
+            gradeBadgeEl.style.background = gradeColors[grade] + '22';
+            gradeBadgeEl.style.color = gradeColors[grade];
+            gradeBadgeEl.style.borderColor = gradeColors[grade] + '44';
+            gradeLabelEl.textContent = grade_label;
+            tipEl.textContent = tips[grade] || '';
+
+            fillEl.style.background = `linear-gradient(90deg, ${gradeColors[grade]}, ${gradeColors[grade]}88)`;
+
+            // Animate score
+            animateNum(scoreEl, 0, predicted_marks, 1200, (v) => v.toFixed(1));
+            setTimeout(() => {
+                fillEl.style.width = predicted_marks + '%';
+                pctEl.textContent = predicted_marks.toFixed(1) + '%';
+            }, 100);
+        }
+
+        function showError(msg) {
+            const el = document.getElementById('error-box');
+            el.textContent = '⚠️ ' + msg;
+            el.classList.remove('hidden');
+        }
+
+        function animateNum(el, from, to, duration, fmt) {
+            const start = performance.now();
+            function step(now) {
+                const progress = Math.min((now - start) / duration, 1);
+                const ease = 1 - Math.pow(1 - progress, 4);
+                el.textContent = fmt(from + (to - from) * ease);
+                if (progress < 1) requestAnimationFrame(step);
+            }
+            requestAnimationFrame(step);
+        }
+    </script>
+</body>
+</html>
